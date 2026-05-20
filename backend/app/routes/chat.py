@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.models import RecipeORM
-from app.schemas import Recipe, RecipeCreate
+from app.schemas import Recipe
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
