@@ -6,25 +6,27 @@ from langchain.agents import create_agent
 from langchain_azure_ai.chat_models import AzureAIChatCompletionsModel
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
-from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
 
-from app.store import RecipeCreate
-from app.store import create_recipe as store_create_recipe
-from app.store import delete_recipe as store_delete_recipe
-from app.store import list_recipes as store_list_recipes
+from app.models import RecipeORM
+from app.schemas import Recipe, RecipeCreate
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 ENDPOINT = os.environ["AZURE_AI_INFERENCE_ENDPOINT"]
 API_KEY = os.environ["AZURE_AI_INFERENCE_API_KEY"]
 MODEL = os.environ.get("AZURE_AI_INFERENCE_MODEL", "Mistral-Large-3")
+_SYNC_DB_URL = os.environ["DATABASE_URL"].replace("+asyncpg", "+psycopg2")
 
 llm = AzureAIChatCompletionsModel(
     endpoint=ENDPOINT,
     credential=API_KEY,
     model=MODEL,
 )
+
+_sync_engine = create_engine(_SYNC_DB_URL)
 
 SYSTEM_PROMPT = (
     "You are a helpful culinary assistant managing a recipe notebook. "
@@ -37,8 +39,12 @@ SYSTEM_PROMPT = (
 @tool
 def list_recipes() -> str:
     """Return all recipes currently in the notebook."""
-    recipes = store_list_recipes()
-    return json.dumps([r.model_dump() for r in recipes], ensure_ascii=False)
+    with Session(_sync_engine) as session:
+        recipes = session.execute(select(RecipeORM)).scalars().all()
+        return json.dumps(
+            [Recipe.model_validate(r).model_dump() for r in recipes],
+            ensure_ascii=False,
+        )
 
 
 @tool
@@ -49,8 +55,12 @@ def create_recipe(name: str, ingredients: list[str]) -> str:
         name: Name of the recipe.
         ingredients: List of ingredients.
     """
-    recipe = store_create_recipe(RecipeCreate(name=name, ingredients=ingredients))
-    return json.dumps(recipe.model_dump(), ensure_ascii=False)
+    with Session(_sync_engine) as session:
+        recipe = RecipeORM(name=name, ingredients=ingredients)
+        session.add(recipe)
+        session.commit()
+        session.refresh(recipe)
+        return json.dumps(Recipe.model_validate(recipe).model_dump(), ensure_ascii=False)
 
 
 @tool
@@ -60,15 +70,19 @@ def delete_recipe(recipe_id: int) -> str:
     Args:
         recipe_id: The integer id of the recipe to delete.
     """
-    success = store_delete_recipe(recipe_id)
-    return "Deleted." if success else f"No recipe with id {recipe_id}."
+    with Session(_sync_engine) as session:
+        recipe = session.get(RecipeORM, recipe_id)
+        if recipe is None:
+            return f"No recipe with id {recipe_id}."
+        session.delete(recipe)
+        session.commit()
+        return "Deleted."
 
 
 agent = create_agent(
     llm,
     tools=[list_recipes, create_recipe, delete_recipe],
     system_prompt=SYSTEM_PROMPT,
-    # checkpointer=InMemorySaver(),
 )
 
 
@@ -82,6 +96,9 @@ class ChatResponse(BaseModel):
 
 @router.post("", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
-    result = agent.invoke({"messages": [HumanMessage(content=request.message)]}, {"configurable": {"thread_id": "1"}})
+    result = agent.invoke(
+        {"messages": [HumanMessage(content=request.message)]},
+        {"configurable": {"thread_id": "1"}},
+    )
     reply = result["messages"][-1].content
     return ChatResponse(reply=reply)
