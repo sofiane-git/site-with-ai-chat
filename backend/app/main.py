@@ -1,5 +1,9 @@
 """Point d'entrée FastAPI — assemble les routes et configure CORS."""
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

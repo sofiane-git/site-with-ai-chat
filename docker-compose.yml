@@ -9,7 +9,7 @@ services:
       - AZURE_AI_INFERENCE_MODEL=${AZURE_AI_INFERENCE_MODEL}
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
 
   frontend:
     build: ./frontend
