@@ -57,7 +57,7 @@ async def test_delete_unknown_recipe_returns_404(client: AsyncClient) -> None:
     assert response.status_code == 404
 
 
-async def test_chat_stub_responds(client: AsyncClient) -> None:
+async def test_chat_responds(client: AsyncClient) -> None:
     response = await client.post("/chat", json={"message": "Bonjour"})
     assert response.status_code == 200
-    assert "TODO" in response.json()["reply"]
+    assert "reply" in response.json()
