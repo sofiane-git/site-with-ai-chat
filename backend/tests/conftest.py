@@ -1,11 +1,14 @@
 import os
 import pytest
+from dotenv import load_dotenv
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.database import get_db
-from app.main import app
-from app.models import Base
+load_dotenv()  # must run before app imports — database.py reads DATABASE_URL at import time
+
+from app.database import get_db  # noqa: E402
+from app.main import app  # noqa: E402
+from app.models import Base  # noqa: E402
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
