@@ -1,4 +1,6 @@
 from httpx import AsyncClient
+import httpx
+from unittest.mock import MagicMock, patch
 
 
 async def test_health(client: AsyncClient) -> None:
@@ -131,15 +133,12 @@ async def test_providers_health_returns_expected_shape(client: AsyncClient) -> N
 
 
 async def test_providers_health_ollama_up(client: AsyncClient) -> None:
-    from unittest.mock import patch, MagicMock
-    with patch("httpx.get", return_value=MagicMock()):
+    with patch("app.routes.health.httpx.get", return_value=MagicMock()):
         response = await client.get("/health/providers")
     assert response.json() == {"ollama": True, "azure": False}
 
 
 async def test_providers_health_ollama_down(client: AsyncClient) -> None:
-    from unittest.mock import patch
-    import httpx
-    with patch("httpx.get", side_effect=httpx.RequestError("connection refused")):
+    with patch("app.routes.health.httpx.get", side_effect=httpx.RequestError("connection refused")):
         response = await client.get("/health/providers")
     assert response.json() == {"ollama": False, "azure": False}
