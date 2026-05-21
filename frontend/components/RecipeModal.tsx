@@ -35,6 +35,7 @@ export default function RecipeModal({ recipe, onClose }: RecipeModalProps) {
             {recipe.country && (
               <p className="text-sm text-gray-500 mt-0.5">{recipe.country}</p>
             )}
+            <p className="text-xs text-gray-400 mt-0.5">#{recipe.id}</p>
           </div>
           <button
             onClick={onClose}
