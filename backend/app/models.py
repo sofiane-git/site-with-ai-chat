@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -14,3 +14,4 @@ class RecipeORM(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     ingredients: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
     country: Mapped[str | None] = mapped_column(String, nullable=True)
+    instructions: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -12,7 +12,7 @@ from app.models import Base  # noqa: E402
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/recipes_test",
+    "postgresql+asyncpg://postgres:postgres@postgres:5432/recipes_test",
 )
 
 

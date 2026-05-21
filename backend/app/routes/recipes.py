@@ -25,7 +25,12 @@ async def get_one_recipe(recipe_id: int, db: AsyncSession = Depends(get_db)) -> 
 
 @router.post("", response_model=Recipe, status_code=201)
 async def post_recipe(data: RecipeCreate, db: AsyncSession = Depends(get_db)) -> RecipeORM:
-    recipe = RecipeORM(name=data.name, ingredients=data.ingredients)
+    recipe = RecipeORM(
+        name=data.name,
+        ingredients=data.ingredients,
+        country=data.country,
+        instructions=data.instructions,
+    )
     db.add(recipe)
     await db.commit()
     await db.refresh(recipe)

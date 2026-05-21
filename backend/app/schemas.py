@@ -6,6 +6,7 @@ class Recipe(BaseModel):
     name: str
     ingredients: list[str]
     country: str | None = None
+    instructions: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -14,3 +15,4 @@ class RecipeCreate(BaseModel):
     name: str
     ingredients: list[str]
     country: str | None = None
+    instructions: str | None = None

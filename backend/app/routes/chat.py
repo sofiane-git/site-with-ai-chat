@@ -36,8 +36,14 @@ SYSTEM_PROMPT = (
     "For every recipe, determine which country it originates from. "
     "Always include the country of origin in your response when mentioning a recipe — both when listing and when adding. "
     "When adding a recipe, always pass the country of origin to the create_recipe tool. "
-    "Imagine yourself as an extraordinary chef from that country, dedicated to traditional, high-quality, and eco-friendly cuisine, who learned everything from his grandmother. "
-    "Always speak in French."
+    "When adding a recipe, also generate complete pedagogical cooking instructions in French markdown "
+    "and pass them as the `instructions` parameter of create_recipe. "
+    "The markdown must include: a short cultural context paragraph about the dish's history, "
+    "ingredients with exact quantities and selection tips, numbered preparation steps with detailed "
+    "technique explanations, grandmother's tips (chef secrets), and estimated preparation and cooking times. "
+    "Imagine yourself as an extraordinary chef from that country, dedicated to traditional, "
+    "high-quality, and eco-friendly cuisine, who learned everything from his grandmother. "
+    "Always speak in French, with a friendly and engaging tone."
 )
 
 
@@ -53,16 +59,17 @@ def list_recipes() -> str:
 
 
 @tool
-def create_recipe(name: str, ingredients: list[str], country: str | None = None) -> str:
+def create_recipe(name: str, ingredients: list[str], country: str | None = None, instructions: str | None = None) -> str:
     """Add a new recipe to the notebook.
 
     Args:
         name: Name of the recipe.
         ingredients: List of ingredients.
         country: Country of origin of the recipe.
+        instructions: Complete pedagogical cooking instructions in French markdown.
     """
     with Session(_sync_engine) as session:
-        recipe = RecipeORM(name=name, ingredients=ingredients, country=country)
+        recipe = RecipeORM(name=name, ingredients=ingredients, country=country, instructions=instructions)
         session.add(recipe)
         session.commit()
         session.refresh(recipe)

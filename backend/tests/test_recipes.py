@@ -61,3 +61,48 @@ async def test_chat_responds(client: AsyncClient) -> None:
     response = await client.post("/chat", json={"message": "Bonjour"})
     assert response.status_code == 200
     assert "reply" in response.json()
+
+
+async def test_create_recipe_with_country_and_instructions(client: AsyncClient) -> None:
+    response = await client.post(
+        "/recipes",
+        json={
+            "name": "Ratatouille",
+            "ingredients": ["courgettes", "aubergines", "tomates"],
+            "country": "France",
+            "instructions": "## Préparation\n\n1. Couper les légumes en rondelles.",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["country"] == "France"
+    assert data["instructions"] is not None
+    assert "Préparation" in data["instructions"]
+
+
+async def test_create_recipe_country_and_instructions_default_to_null(client: AsyncClient) -> None:
+    response = await client.post(
+        "/recipes", json={"name": "Simple", "ingredients": ["sel"]}
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["country"] is None
+    assert data["instructions"] is None
+
+
+async def test_list_recipes_includes_country_and_instructions(client: AsyncClient) -> None:
+    await client.post(
+        "/recipes",
+        json={
+            "name": "Paella",
+            "ingredients": ["riz", "safran"],
+            "country": "Espagne",
+            "instructions": "## Étapes\n\n1. Faire revenir.",
+        },
+    )
+    response = await client.get("/recipes")
+    assert response.status_code == 200
+    recipes = response.json()
+    assert len(recipes) == 1
+    assert recipes[0]["country"] == "Espagne"
+    assert recipes[0]["instructions"] is not None
