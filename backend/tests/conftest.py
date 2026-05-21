@@ -1,5 +1,6 @@
 import os
 import pytest
+from unittest.mock import MagicMock
 from dotenv import load_dotenv
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -21,6 +22,16 @@ TEST_DATABASE_URL = os.environ.get(
 def patch_agent_azure_none(monkeypatch):
     """Force agent_azure to None in all tests — Azure credentials must not be called in tests."""
     monkeypatch.setattr(chat_module, "agent_azure", None)
+
+
+@pytest.fixture
+def mock_ollama_agent(monkeypatch):
+    """Replace agent_ollama with a fake agent returning a predictable reply — no live Ollama needed."""
+    fake_message = MagicMock()
+    fake_message.content = "Réponse de test"
+    fake_agent = MagicMock()
+    fake_agent.invoke.return_value = {"messages": [fake_message]}
+    monkeypatch.setattr(chat_module, "agent_ollama", fake_agent)
 
 
 @pytest.fixture(scope="session")

@@ -9,7 +9,8 @@ const STORAGE_KEY = "llm_provider";
 
 function getInitialProvider(): LLMProvider {
   if (typeof window === "undefined") return "ollama";
-  return (localStorage.getItem(STORAGE_KEY) as LLMProvider) ?? "ollama";
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored === "ollama" || stored === "azure" ? stored : "ollama";
 }
 
 export default function ChatPanel({ onMutation }: { onMutation?: () => void }) {

@@ -108,7 +108,7 @@ async def test_list_recipes_includes_country_and_instructions(client: AsyncClien
     assert recipes[0]["instructions"] is not None
 
 
-async def test_chat_with_explicit_ollama_provider(client: AsyncClient) -> None:
+async def test_chat_with_explicit_ollama_provider(mock_ollama_agent, client: AsyncClient) -> None:
     response = await client.post("/chat", json={"message": "Bonjour", "provider": "ollama"})
     assert response.status_code == 200
     assert "reply" in response.json()
