@@ -98,7 +98,7 @@ export async function sendChat(message: string, provider: LLMProvider = "ollama"
 export type ProvidersHealth = { ollama: boolean; azure: boolean };
 
 export async function getProvidersHealth(): Promise<ProvidersHealth> {
-  const res = await fetch(`${API_URL}/health/providers`);
+  const res = await fetch(`${API_URL}/health/providers`, { cache: "no-store" });
   if (!res.ok) throw new Error("Échec health check");
   return res.json();
 }

@@ -28,7 +28,10 @@ export default function ChatPanel({ onMutation }: { onMutation?: () => void }) {
   useEffect(() => {
     getProvidersHealth()
       .then(setHealth)
-      .catch(() => setHealth({ ollama: false, azure: false }));
+      .catch((err) => {
+        console.error("[health] providers check failed:", err);
+        setHealth({ ollama: false, azure: false });
+      });
   }, []);
 
   function handleProviderChange(p: LLMProvider) {
@@ -72,7 +75,7 @@ export default function ChatPanel({ onMutation }: { onMutation?: () => void }) {
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${statusDotClass(health, p)}`} />
+              <span aria-hidden="true" className={`w-2 h-2 rounded-full ${statusDotClass(health, p)}`} />
               {p === "ollama" ? "Ollama" : "Azure"}
             </button>
           ))}
