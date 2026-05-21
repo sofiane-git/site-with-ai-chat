@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { sendChat, LLMProvider } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { sendChat, LLMProvider, getProvidersHealth, ProvidersHealth } from "@/lib/api";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -13,11 +13,23 @@ function getInitialProvider(): LLMProvider {
   return stored === "ollama" || stored === "azure" ? stored : "ollama";
 }
 
+function statusDotClass(health: ProvidersHealth | null, p: LLMProvider): string {
+  if (health === null) return "bg-gray-300";
+  return health[p] ? "bg-green-400" : "bg-red-400";
+}
+
 export default function ChatPanel({ onMutation }: { onMutation?: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState<LLMProvider>(getInitialProvider);
+  const [health, setHealth] = useState<ProvidersHealth | null>(null);
+
+  useEffect(() => {
+    getProvidersHealth()
+      .then(setHealth)
+      .catch(() => setHealth({ ollama: false, azure: false }));
+  }, []);
 
   function handleProviderChange(p: LLMProvider) {
     setProvider(p);
@@ -54,12 +66,13 @@ export default function ChatPanel({ onMutation }: { onMutation?: () => void }) {
             <button
               key={p}
               onClick={() => handleProviderChange(p)}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 provider === p
                   ? "bg-blue-600 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
+              <span className={`w-2 h-2 rounded-full ${statusDotClass(health, p)}`} />
               {p === "ollama" ? "Ollama" : "Azure"}
             </button>
           ))}

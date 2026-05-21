@@ -94,3 +94,11 @@ export async function sendChat(message: string, provider: LLMProvider = "ollama"
   if (!res.ok) throw new Error("Échec chat");
   return res.json();
 }
+
+export type ProvidersHealth = { ollama: boolean; azure: boolean };
+
+export async function getProvidersHealth(): Promise<ProvidersHealth> {
+  const res = await fetch(`${API_URL}/health/providers`);
+  if (!res.ok) throw new Error("Échec health check");
+  return res.json();
+}
