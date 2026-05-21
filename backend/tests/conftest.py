@@ -9,11 +9,18 @@ load_dotenv()  # must run before app imports — database.py reads DATABASE_URL 
 from app.database import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base  # noqa: E402
+import app.routes.chat as chat_module  # noqa: E402
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+asyncpg://postgres:postgres@postgres:5432/recipes_test",
 )
+
+
+@pytest.fixture(autouse=True)
+def patch_agent_azure_none(monkeypatch):
+    """Force agent_azure to None in all tests — Azure credentials must not be called in tests."""
+    monkeypatch.setattr(chat_module, "agent_azure", None)
 
 
 @pytest.fixture(scope="session")

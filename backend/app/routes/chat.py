@@ -1,7 +1,8 @@
 import json
 import logging
+from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from langchain.agents import create_agent
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
@@ -18,15 +19,6 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 _SYNC_DB_URL = settings.database_url.get_secret_value().replace("+asyncpg", "+psycopg2")
-
-logger.info("🤖 LLM service : Ollama | model : %s | url : %s", settings.ollama_model, settings.ollama_base_url)
-
-llm = ChatOllama(
-    model=settings.ollama_model,
-    base_url=settings.ollama_base_url.get_secret_value(),
-    temperature=0.5,
-)
-
 _sync_engine = create_engine(_SYNC_DB_URL)
 
 SYSTEM_PROMPT = (
@@ -92,15 +84,36 @@ def delete_recipe(recipe_id: int) -> str:
         return "Deleted."
 
 
-agent = create_agent(
-    llm,
-    tools=[list_recipes, create_recipe, delete_recipe],
-    system_prompt=SYSTEM_PROMPT,
+_TOOLS = [list_recipes, create_recipe, delete_recipe]
+
+# --- Ollama (toujours disponible) ---
+logger.info("🤖 Ollama | model : %s | url : %s", settings.ollama_model, settings.ollama_base_url)
+llm_ollama = ChatOllama(
+    model=settings.ollama_model,
+    base_url=settings.ollama_base_url.get_secret_value(),
+    temperature=0.5,
 )
+agent_ollama = create_agent(llm_ollama, tools=_TOOLS, system_prompt=SYSTEM_PROMPT)
+
+# --- Azure AI (optionnel) ---
+agent_azure = None
+if settings.azure_ai_inference_api_key and settings.azure_ai_inference_endpoint:
+    from langchain_azure_ai.chat_models import AzureAIChatCompletionsModel
+    llm_azure = AzureAIChatCompletionsModel(
+        endpoint=settings.azure_ai_inference_endpoint.get_secret_value(),
+        credential=settings.azure_ai_inference_api_key.get_secret_value(),
+        model_name=settings.azure_ai_inference_model,
+        temperature=0.5,
+    )
+    agent_azure = create_agent(llm_azure, tools=_TOOLS, system_prompt=SYSTEM_PROMPT)
+    logger.info("🤖 Azure AI disponible | model : %s", settings.azure_ai_inference_model)
+else:
+    logger.info("ℹ️  Azure AI non configuré (credentials absents)")
 
 
 class ChatRequest(BaseModel):
     message: str
+    provider: Literal["ollama", "azure"] = "ollama"
 
 
 class ChatResponse(BaseModel):
@@ -109,17 +122,15 @@ class ChatResponse(BaseModel):
 
 @router.post("", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
+    if request.provider == "azure":
+        if agent_azure is None:
+            raise HTTPException(status_code=400, detail="Azure AI non configuré sur ce serveur")
+        agent = agent_azure
+    else:
+        agent = agent_ollama
+
     result = agent.invoke(
         {"messages": [HumanMessage(content=request.message)]},
         {"configurable": {"thread_id": request.message}},
     )
-    reply = result["messages"][-1].content
-    # messages = [
-    #     ChatMessage(role="control", content="thinking"),
-    #     HumanMessage(content=request.message),
-    # ]
-
-    # response = llm.invoke(messages)
-    return ChatResponse(reply=reply)
-    # return ChatResponse(reply=response.content)
-
+    return ChatResponse(reply=result["messages"][-1].content)

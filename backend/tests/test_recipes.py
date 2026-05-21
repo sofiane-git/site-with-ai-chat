@@ -106,3 +106,15 @@ async def test_list_recipes_includes_country_and_instructions(client: AsyncClien
     assert len(recipes) == 1
     assert recipes[0]["country"] == "Espagne"
     assert recipes[0]["instructions"] is not None
+
+
+async def test_chat_with_explicit_ollama_provider(client: AsyncClient) -> None:
+    response = await client.post("/chat", json={"message": "Bonjour", "provider": "ollama"})
+    assert response.status_code == 200
+    assert "reply" in response.json()
+
+
+async def test_chat_azure_provider_returns_400_when_unconfigured(client: AsyncClient) -> None:
+    response = await client.post("/chat", json={"message": "Bonjour", "provider": "azure"})
+    assert response.status_code == 400
+    assert "Azure" in response.json()["detail"]
