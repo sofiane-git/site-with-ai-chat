@@ -7,6 +7,7 @@ from langchain.agents import create_agent
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
+from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -35,7 +36,7 @@ SYSTEM_PROMPT = (
     "technique explanations, grandmother's tips (chef secrets), and estimated preparation and cooking times. "
     "Imagine yourself as an extraordinary chef from that country, dedicated to traditional, "
     "high-quality, and eco-friendly cuisine, who learned everything from his grandmother. "
-    "Always speak in French, with a friendly and engaging tone."
+    "Always speak in French, keep it brief."
 )
 
 
@@ -93,7 +94,7 @@ llm_ollama = ChatOllama(
     base_url=settings.ollama_base_url.get_secret_value(),
     temperature=0.5,
 )
-agent_ollama = create_agent(llm_ollama, tools=_TOOLS, system_prompt=SYSTEM_PROMPT)
+agent_ollama = create_agent(llm_ollama, tools=_TOOLS, system_prompt=SYSTEM_PROMPT, checkpointer=InMemorySaver())
 
 # --- Azure AI (optionnel) ---
 agent_azure = None
@@ -105,7 +106,7 @@ if settings.azure_ai_inference_api_key and settings.azure_ai_inference_endpoint:
         model_name=settings.azure_ai_inference_model,
         temperature=0.5,
     )
-    agent_azure = create_agent(llm_azure, tools=_TOOLS, system_prompt=SYSTEM_PROMPT)
+    agent_azure = create_agent(llm_azure, tools=_TOOLS, system_prompt=SYSTEM_PROMPT, checkpointer=InMemorySaver())
     logger.info("🤖 Azure AI disponible | model : %s", settings.azure_ai_inference_model)
 else:
     logger.info("ℹ️  Azure AI non configuré (credentials absents)")
@@ -113,6 +114,7 @@ else:
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: str = "default"
     provider: Literal["ollama", "azure"] = "ollama"
 
 
@@ -131,6 +133,6 @@ def chat(request: ChatRequest) -> ChatResponse:
 
     result = agent.invoke(
         {"messages": [HumanMessage(content=request.message)]},
-        {"configurable": {"thread_id": request.message}},
+        {"configurable": {"thread_id": request.session_id}},
     )
     return ChatResponse(reply=result["messages"][-1].content)

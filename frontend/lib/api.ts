@@ -85,11 +85,17 @@ export async function deleteRecipe(id: number): Promise<void> {
 
 export type LLMProvider = "ollama" | "azure";
 
+let _sessionId: string | null = null;
+function getSessionId(): string {
+  if (!_sessionId) _sessionId = crypto.randomUUID();
+  return _sessionId;
+}
+
 export async function sendChat(message: string, provider: LLMProvider = "ollama"): Promise<{ reply: string }> {
   const res = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, provider }),
+    body: JSON.stringify({ message, provider, session_id: getSessionId() }),
   });
   if (!res.ok) throw new Error("Échec chat");
   return res.json();
