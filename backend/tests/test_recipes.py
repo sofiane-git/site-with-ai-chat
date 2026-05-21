@@ -118,3 +118,13 @@ async def test_chat_azure_provider_returns_400_when_unconfigured(client: AsyncCl
     response = await client.post("/chat", json={"message": "Bonjour", "provider": "azure"})
     assert response.status_code == 400
     assert "Azure" in response.json()["detail"]
+
+
+async def test_providers_health_returns_expected_shape(client: AsyncClient) -> None:
+    response = await client.get("/health/providers")
+    assert response.status_code == 200
+    data = response.json()
+    assert "ollama" in data
+    assert "azure" in data
+    assert isinstance(data["ollama"], bool)
+    assert isinstance(data["azure"], bool)
