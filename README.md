@@ -153,6 +153,99 @@ Utilisateur : "Supprime la recette numéro 3"
   5. ChatPanel reçoit la réponse → appelle onMutation() → RecipeList se recharge
 ```
 
+---
+
+## Comment fonctionne le chat — v2
+
+> **Ce qui a changé** : bascule sur Ollama, centralisation de la config, ajout des champs `country` et `instructions`.
+
+### Vue d'ensemble
+
+Le flux reste identique, mais le LLM est maintenant servi par **Ollama** (en local) et l'agent transmet deux informations supplémentaires lors de la création d'une recette :
+
+```
+Navigateur (ChatPanel.tsx)
+  │  POST /chat  {"message": "Ajoute une quiche lorraine"}
+  ▼
+FastAPI  (routes/chat.py)
+  │  agent.invoke(HumanMessage(...))
+  ▼
+Agent LangChain
+  │  Le LLM lit le message et décide quel outil appeler
+  │  → appelle create_recipe("quiche lorraine", ["oeufs", ...], country="France", instructions="# Quiche…")
+  ▼
+Tool  (fonction Python @tool)
+  │  INSERT INTO recipes ...  (via SQLAlchemy + psycopg2)
+  ▼
+PostgreSQL
+  │  retourne la ligne insérée (avec country + instructions)
+  ▼
+Tool  → renvoie le JSON de la recette au LLM
+  ▼
+LLM  → formule une réponse en français, mentionne le pays d'origine
+  ▼
+FastAPI  → {"reply": "J'ai ajouté la quiche lorraine, spécialité de France !"}
+  ▼
+ChatPanel.tsx  → affiche la réponse + déclenche le rechargement de RecipeList
+```
+
+### Le rôle de l'agent
+
+Même mécanique de boucle de raisonnement LangChain. Deux évolutions :
+
+**Nouveau fournisseur LLM — Ollama**
+```python
+from langchain_ollama import ChatOllama
+llm = ChatOllama(model=settings.ollama_model, base_url=settings.ollama_base_url, temperature=0.5)
+```
+Ollama tourne en local (ou sur une machine dédiée). Les variables `OLLAMA_BASE_URL` et `OLLAMA_MODEL` dans `.env` remplacent les variables Azure.
+
+**Config centralisée — `app/config.py`**
+Les `os.environ["..."]` éparpillés dans chaque fichier sont remplacés par un objet `settings` (Pydantic Settings), qui lit le `.env` automatiquement et valide les types au démarrage :
+```python
+from app.config import settings
+settings.ollama_model          # → "ministral-3:14b"
+settings.database_url.get_secret_value()  # → masqué dans les logs
+```
+
+**System prompt enrichi** : le LLM incarne désormais un chef formé par sa grand-mère, identifie le pays d'origine de chaque recette, et génère une fiche pédagogique complète (contexte culturel, quantités, étapes numérotées, astuces de chef) à chaque ajout.
+
+### Le rôle de chaque outil
+
+| Outil | Ce qu'il fait | SQL exécuté |
+|-------|--------------|-------------|
+| `list_recipes()` | Retourne toutes les recettes au format JSON | `SELECT * FROM recipes` |
+| `create_recipe(name, ingredients, country, instructions)` | Ajoute une recette avec pays et fiche pédagogique | `INSERT INTO recipes ...` |
+| `delete_recipe(recipe_id)` | Supprime une recette par son id | `DELETE FROM recipes WHERE id = ?` |
+
+`country` et `instructions` sont tous deux optionnels (`str | None`). Le LLM est instruit dans le system prompt de toujours les renseigner — c'est lui qui détermine le pays et rédige la fiche.
+
+> **Nota (inchangé) :** le chat utilise une connexion **synchrone** (`psycopg2`) alors que le reste du backend est async (`asyncpg`), d'où `DATABASE_URL.replace("+asyncpg", "+psycopg2")`.
+
+### Flux de données complet (exemple)
+
+```
+Utilisateur : "Quelles recettes j'ai ?"
+
+  1. ChatPanel envoie  POST /chat {"message": "Quelles recettes j'ai ?"}
+  2. FastAPI passe le message à l'agent LangChain
+  3. Le LLM choisit d'appeler  list_recipes()
+  4. list_recipes() exécute  SELECT * FROM recipes  → JSON (avec country + instructions)
+  5. Le LLM reçoit le JSON et liste les recettes avec leur pays d'origine
+  6. FastAPI retourne  {"reply": "Voici vos recettes : …"}
+  7. ChatPanel affiche la réponse (pas de mutation → RecipeList ne se recharge pas)
+```
+
+```
+Utilisateur : "Ajoute un tiramisu"
+
+  1. → POST /chat {"message": "Ajoute un tiramisu"}
+  2. Le LLM appelle  create_recipe("tiramisu", [...], country="Italie", instructions="# Tiramisu\n…")
+  3. create_recipe() exécute  INSERT INTO recipes (name, ingredients, country, instructions)
+  4. Le LLM confirme l'ajout en mentionnant l'Italie
+  5. ChatPanel reçoit la réponse → appelle onMutation() → RecipeList se recharge
+```
+
 ## Commandes utiles
 
 | Commande     | Effet                                            |
