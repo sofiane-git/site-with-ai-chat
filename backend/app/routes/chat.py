@@ -1,10 +1,8 @@
 import json
 import logging
-import os
 
 from fastapi import APIRouter
 from langchain.agents import create_agent
-# from langchain_azure_ai.chat_models import AzureAIChatCompletionsModel
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
@@ -12,25 +10,20 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models import RecipeORM
 from app.schemas import Recipe
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
-# ENDPOINT = os.environ["AZURE_AI_INFERENCE_ENDPOINT"]
-# API_KEY = os.environ["AZURE_AI_INFERENCE_API_KEY"]
-# MODEL = os.environ.get("AZURE_AI_INFERENCE_MODEL", "Mistral-Large-3")
-_SYNC_DB_URL = os.environ["DATABASE_URL"].replace("+asyncpg", "+psycopg2")
+_SYNC_DB_URL = settings.database_url.get_secret_value().replace("+asyncpg", "+psycopg2")
 
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL")
-
-logger.info("🤖 LLM service : Ollama | model : %s | url : %s", OLLAMA_MODEL, OLLAMA_BASE_URL)
+logger.info("🤖 LLM service : Ollama | model : %s | url : %s", settings.ollama_model, settings.ollama_base_url)
 
 llm = ChatOllama(
-    model=OLLAMA_MODEL,
-    base_url=OLLAMA_BASE_URL,
+    model=settings.ollama_model,
+    base_url=settings.ollama_base_url.get_secret_value(),
     temperature=0,
 )
 

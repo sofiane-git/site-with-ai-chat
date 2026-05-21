@@ -1,22 +1,18 @@
-import os
 from logging.config import fileConfig
 
 from alembic import context
-from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
-load_dotenv()
+from app.config import settings
+from app.models import Base  # noqa: E402
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from app.models import Base  # noqa: E402
-
 target_metadata = Base.metadata
 
-# Alembic uses a sync driver (psycopg2), not asyncpg.
-database_url = os.environ["DATABASE_URL"].replace("+asyncpg", "+psycopg2")
+database_url = settings.database_url.get_secret_value().replace("+asyncpg", "+psycopg2")
 config.set_main_option("sqlalchemy.url", database_url)
 
 
