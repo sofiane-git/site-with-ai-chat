@@ -24,6 +24,6 @@ def providers_health() -> ProvidersHealth:
     try:
         httpx.get(settings.ollama_base_url.get_secret_value(), timeout=2.0)
         ollama_ok = True
-    except httpx.RequestError:
+    except httpx.HTTPError:
         ollama_ok = False
     return ProvidersHealth(ollama=ollama_ok, azure=agent_azure is not None)
