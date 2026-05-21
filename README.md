@@ -246,6 +246,51 @@ Utilisateur : "Ajoute un tiramisu"
   5. ChatPanel reçoit la réponse → appelle onMutation() → RecipeList se recharge
 ```
 
+---
+
+## Comment fonctionne le chat — v3
+
+> **Ce qui a changé** : sélecteur de provider LLM (Ollama / Azure) avec persistance localStorage, indicateurs de disponibilité en temps réel, carte de recette cliquable, modal pédagogique avec Markdown.
+
+### Nouveautés frontend
+
+**Sélecteur de provider dans `ChatPanel`**
+
+Un toggle Ollama / Azure apparaît en haut du panneau. Le choix est persisté dans `localStorage` (`llm_provider`) et relu au montage. Le provider sélectionné est désormais transmis dans chaque requête :
+
+```typescript
+// lib/api.ts
+export type LLMProvider = "ollama" | "azure";
+sendChat(message, provider)  // body: { message, provider }
+```
+
+Chaque bouton affiche un point coloré indiquant la disponibilité du provider, interrogée au chargement via un nouvel endpoint :
+
+```typescript
+// GET /health/providers → { ollama: boolean, azure: boolean }
+getProvidersHealth()
+// vert = disponible · rouge = indisponible · gris = en cours de vérification
+```
+
+**`RecipeCard` — nouveau composant**
+
+Remplace l'ancienne liste `<li>` brute. Chaque carte affiche le drapeau du pays, le nom et un aperçu des 3 premiers ingrédients. Un clic ouvre la modal ; le bouton ✕ supprime sans l'ouvrir (`e.stopPropagation()`).
+
+**`RecipeModal` — nouveau composant**
+
+Modal plein écran fermable via `Escape` ou clic extérieur. Affiche :
+- En-tête sticky : drapeau + nom + pays + `#id`
+- Ingrédients en liste à puces
+- Instructions rendues en Markdown via `react-markdown`
+
+**`countryToEmoji` — helper dans `lib/api.ts`**
+
+Convertit le nom du pays (français ou anglais) en emoji drapeau via une table de 50+ correspondances. Retourne `🌍` par défaut.
+
+**`RecipeList`**
+
+Le formulaire d'ajout manuel a été supprimé — l'ajout se fait uniquement via le chat. Un message d'état vide guide l'utilisateur quand le carnet est vide.
+
 ## Commandes utiles
 
 | Commande     | Effet                                            |
