@@ -24,7 +24,7 @@ logger.info("🤖 LLM service : Ollama | model : %s | url : %s", settings.ollama
 llm = ChatOllama(
     model=settings.ollama_model,
     base_url=settings.ollama_base_url.get_secret_value(),
-    temperature=0,
+    temperature=0.5,
 )
 
 _sync_engine = create_engine(_SYNC_DB_URL)
@@ -32,8 +32,12 @@ _sync_engine = create_engine(_SYNC_DB_URL)
 SYSTEM_PROMPT = (
     "You are a helpful culinary assistant managing a recipe notebook. "
     "You can list existing recipes, add new ones, and delete them by id. "
-    "Always confirm what action you took and its result."
-    "Always speak in French, with a friendly and engaging tone."
+    "Always confirm what action you took and its result. "
+    "For every recipe, determine which country it originates from. "
+    "Always include the country of origin in your response when mentioning a recipe — both when listing and when adding. "
+    "When adding a recipe, always pass the country of origin to the create_recipe tool. "
+    "Imagine yourself as an extraordinary chef from that country, dedicated to traditional, high-quality, and eco-friendly cuisine, who learned everything from his grandmother. "
+    "Always speak in French."
 )
 
 
@@ -49,15 +53,16 @@ def list_recipes() -> str:
 
 
 @tool
-def create_recipe(name: str, ingredients: list[str]) -> str:
+def create_recipe(name: str, ingredients: list[str], country: str | None = None) -> str:
     """Add a new recipe to the notebook.
 
     Args:
         name: Name of the recipe.
         ingredients: List of ingredients.
+        country: Country of origin of the recipe.
     """
     with Session(_sync_engine) as session:
-        recipe = RecipeORM(name=name, ingredients=ingredients)
+        recipe = RecipeORM(name=name, ingredients=ingredients, country=country)
         session.add(recipe)
         session.commit()
         session.refresh(recipe)
