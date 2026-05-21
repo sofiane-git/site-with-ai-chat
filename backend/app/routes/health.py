@@ -1,4 +1,4 @@
-import urllib.request
+import httpx
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -22,8 +22,8 @@ def health_check() -> dict:
 def providers_health() -> ProvidersHealth:
     from app.routes.chat import agent_azure
     try:
-        urllib.request.urlopen(settings.ollama_base_url.get_secret_value(), timeout=2)
+        httpx.get(settings.ollama_base_url.get_secret_value(), timeout=2.0)
         ollama_ok = True
-    except Exception:
+    except httpx.RequestError:
         ollama_ok = False
     return ProvidersHealth(ollama=ollama_ok, azure=agent_azure is not None)

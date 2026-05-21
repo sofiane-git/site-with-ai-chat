@@ -128,3 +128,18 @@ async def test_providers_health_returns_expected_shape(client: AsyncClient) -> N
     assert "azure" in data
     assert isinstance(data["ollama"], bool)
     assert isinstance(data["azure"], bool)
+
+
+async def test_providers_health_ollama_up(client: AsyncClient) -> None:
+    from unittest.mock import patch, MagicMock
+    with patch("httpx.get", return_value=MagicMock()):
+        response = await client.get("/health/providers")
+    assert response.json() == {"ollama": True, "azure": False}
+
+
+async def test_providers_health_ollama_down(client: AsyncClient) -> None:
+    from unittest.mock import patch
+    import httpx
+    with patch("httpx.get", side_effect=httpx.RequestError("connection refused")):
+        response = await client.get("/health/providers")
+    assert response.json() == {"ollama": False, "azure": False}
