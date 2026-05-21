@@ -4,7 +4,63 @@ export type Recipe = {
   id: number;
   name: string;
   ingredients: string[];
+  country: string | null;
+  instructions: string | null;
 };
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  'france': '🇫🇷',
+  'italie': '🇮🇹', 'italy': '🇮🇹',
+  'espagne': '🇪🇸', 'spain': '🇪🇸',
+  'japon': '🇯🇵', 'japan': '🇯🇵',
+  'chine': '🇨🇳', 'china': '🇨🇳',
+  'inde': '🇮🇳', 'india': '🇮🇳',
+  'maroc': '🇲🇦', 'morocco': '🇲🇦',
+  'mexique': '🇲🇽', 'mexico': '🇲🇽',
+  'thaïlande': '🇹🇭', 'thailande': '🇹🇭', 'thailand': '🇹🇭',
+  'grèce': '🇬🇷', 'grece': '🇬🇷', 'greece': '🇬🇷',
+  'liban': '🇱🇧', 'lebanon': '🇱🇧',
+  'turquie': '🇹🇷', 'turkey': '🇹🇷',
+  'vietnam': '🇻🇳',
+  'allemagne': '🇩🇪', 'germany': '🇩🇪',
+  'portugal': '🇵🇹',
+  'brésil': '🇧🇷', 'bresil': '🇧🇷', 'brazil': '🇧🇷',
+  'argentine': '🇦🇷', 'argentina': '🇦🇷',
+  'pérou': '🇵🇪', 'peru': '🇵🇪',
+  'états-unis': '🇺🇸', 'etats-unis': '🇺🇸', 'usa': '🇺🇸', 'amérique': '🇺🇸',
+  'corée': '🇰🇷', 'coree': '🇰🇷', 'korea': '🇰🇷', 'corée du sud': '🇰🇷',
+  'égypte': '🇪🇬', 'egypte': '🇪🇬', 'egypt': '🇪🇬',
+  'tunisie': '🇹🇳', 'tunisia': '🇹🇳',
+  'algérie': '🇩🇿', 'algerie': '🇩🇿', 'algeria': '🇩🇿',
+  'sénégal': '🇸🇳', 'senegal': '🇸🇳',
+  'belgique': '🇧🇪', 'belgium': '🇧🇪',
+  'royaume-uni': '🇬🇧', 'angleterre': '🇬🇧', 'england': '🇬🇧', 'uk': '🇬🇧',
+  'russie': '🇷🇺', 'russia': '🇷🇺',
+  'indonésie': '🇮🇩', 'indonesie': '🇮🇩', 'indonesia': '🇮🇩',
+  'cambodge': '🇰🇭', 'cambodia': '🇰🇭',
+  'éthiopie': '🇪🇹', 'ethiopie': '🇪🇹', 'ethiopia': '🇪🇹',
+  'nigeria': '🇳🇬',
+  'suède': '🇸🇪', 'suede': '🇸🇪', 'sweden': '🇸🇪',
+  'norvège': '🇳🇴', 'norvege': '🇳🇴', 'norway': '🇳🇴',
+  'danemark': '🇩🇰', 'denmark': '🇩🇰',
+  'pays-bas': '🇳🇱', 'netherlands': '🇳🇱', 'hollande': '🇳🇱',
+  'suisse': '🇨🇭', 'switzerland': '🇨🇭',
+  'pologne': '🇵🇱', 'poland': '🇵🇱',
+  'philippines': '🇵🇭',
+  'malaisie': '🇲🇾', 'malaysia': '🇲🇾',
+  'singapour': '🇸🇬', 'singapore': '🇸🇬',
+  'pakistan': '🇵🇰',
+  'iran': '🇮🇷',
+  'chili': '🇨🇱', 'chile': '🇨🇱',
+  'colombie': '🇨🇴', 'colombia': '🇨🇴',
+  'canada': '🇨🇦',
+  'australie': '🇦🇺', 'australia': '🇦🇺',
+};
+
+export function countryToEmoji(country: string | null): string {
+  if (!country) return '🌍';
+  return COUNTRY_FLAGS[country.toLowerCase().trim()] ?? '🌍';
+}
 
 export async function listRecipes(): Promise<Recipe[]> {
   const res = await fetch(`${API_URL}/recipes`, { cache: "no-store" });

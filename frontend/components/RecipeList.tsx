@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createRecipe, deleteRecipe, listRecipes, Recipe } from "@/lib/api";
+import RecipeCard from "@/components/RecipeCard";
+import RecipeModal from "@/components/RecipeModal";
 
 export default function RecipeList({ refreshSignal }: { refreshSignal?: number }) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [name, setName] = useState("");
   const [ingredients, setIngredients] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -25,18 +28,26 @@ export default function RecipeList({ refreshSignal }: { refreshSignal?: number }
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    await createRecipe(
-      name,
-      ingredients.split(",").map((s) => s.trim()).filter(Boolean),
-    );
-    setName("");
-    setIngredients("");
-    refresh();
+    try {
+      await createRecipe(
+        name,
+        ingredients.split(",").map((s) => s.trim()).filter(Boolean),
+      );
+      setName("");
+      setIngredients("");
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   async function handleDelete(id: number) {
-    await deleteRecipe(id);
-    refresh();
+    try {
+      await deleteRecipe(id);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   return (
@@ -45,18 +56,12 @@ export default function RecipeList({ refreshSignal }: { refreshSignal?: number }
       {error && <p className="text-red-600">{error}</p>}
       <ul className="space-y-2">
         {recipes.map((r) => (
-          <li key={r.id} className="border p-3 rounded flex justify-between items-start">
-            <div>
-              <div className="font-medium">{r.name}</div>
-              <div className="text-sm text-gray-600">{r.ingredients.join(", ")}</div>
-            </div>
-            <button
-              onClick={() => handleDelete(r.id)}
-              className="text-red-600 text-sm hover:underline"
-            >
-              supprimer
-            </button>
-          </li>
+          <RecipeCard
+            key={r.id}
+            recipe={r}
+            onDelete={handleDelete}
+            onClick={setSelectedRecipe}
+          />
         ))}
       </ul>
       <form onSubmit={handleAdd} className="border p-3 rounded space-y-2">
@@ -76,6 +81,7 @@ export default function RecipeList({ refreshSignal }: { refreshSignal?: number }
           Ajouter
         </button>
       </form>
+      <RecipeModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
     </div>
   );
 }
