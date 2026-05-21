@@ -157,106 +157,52 @@ Utilisateur : "Supprime la recette numéro 3"
 
 ## Comment fonctionne le chat — v2
 
-> **Ce qui a changé** : bascule sur Ollama, centralisation de la config, ajout des champs `country` et `instructions`.
+> **Ce qui a changé par rapport à v1** : bascule sur Ollama, centralisation de la config, ajout des champs `country` et `instructions`.
 
-### Vue d'ensemble
+### Nouveau fournisseur LLM — Ollama
 
-Le flux reste identique, mais le LLM est maintenant servi par **Ollama** (en local) et l'agent transmet deux informations supplémentaires lors de la création d'une recette :
+Azure AI est remplacé par Ollama (en local ou sur une machine dédiée) :
 
-```
-Navigateur (ChatPanel.tsx)
-  │  POST /chat  {"message": "Ajoute une quiche lorraine"}
-  ▼
-FastAPI  (routes/chat.py)
-  │  agent.invoke(HumanMessage(...))
-  ▼
-Agent LangChain
-  │  Le LLM lit le message et décide quel outil appeler
-  │  → appelle create_recipe("quiche lorraine", ["oeufs", ...], country="France", instructions="# Quiche…")
-  ▼
-Tool  (fonction Python @tool)
-  │  INSERT INTO recipes ...  (via SQLAlchemy + psycopg2)
-  ▼
-PostgreSQL
-  │  retourne la ligne insérée (avec country + instructions)
-  ▼
-Tool  → renvoie le JSON de la recette au LLM
-  ▼
-LLM  → formule une réponse en français, mentionne le pays d'origine
-  ▼
-FastAPI  → {"reply": "J'ai ajouté la quiche lorraine, spécialité de France !"}
-  ▼
-ChatPanel.tsx  → affiche la réponse + déclenche le rechargement de RecipeList
-```
-
-### Le rôle de l'agent
-
-Même mécanique de boucle de raisonnement LangChain. Deux évolutions :
-
-**Nouveau fournisseur LLM — Ollama**
 ```python
 from langchain_ollama import ChatOllama
 llm = ChatOllama(model=settings.ollama_model, base_url=settings.ollama_base_url, temperature=0.5)
 ```
-Ollama tourne en local (ou sur une machine dédiée). Les variables `OLLAMA_BASE_URL` et `OLLAMA_MODEL` dans `.env` remplacent les variables Azure.
 
-**Config centralisée — `app/config.py`**
-Les `os.environ["..."]` éparpillés dans chaque fichier sont remplacés par un objet `settings` (Pydantic Settings), qui lit le `.env` automatiquement et valide les types au démarrage :
+Les variables `OLLAMA_BASE_URL` et `OLLAMA_MODEL` dans `.env` remplacent les variables `AZURE_*`.
+
+### Config centralisée — `app/config.py`
+
+Les `os.environ["..."]` éparpillés dans chaque fichier sont remplacés par un objet `settings` (Pydantic Settings) :
+
 ```python
 from app.config import settings
 settings.ollama_model          # → "ministral-3:14b"
 settings.database_url.get_secret_value()  # → masqué dans les logs
 ```
 
-**System prompt enrichi** : le LLM incarne désormais un chef formé par sa grand-mère, identifie le pays d'origine de chaque recette, et génère une fiche pédagogique complète (contexte culturel, quantités, étapes numérotées, astuces de chef) à chaque ajout.
+### Champs supplémentaires sur `create_recipe`
 
-### Le rôle de chaque outil
-
-| Outil | Ce qu'il fait | SQL exécuté |
-|-------|--------------|-------------|
-| `list_recipes()` | Retourne toutes les recettes au format JSON | `SELECT * FROM recipes` |
-| `create_recipe(name, ingredients, country, instructions)` | Ajoute une recette avec pays et fiche pédagogique | `INSERT INTO recipes ...` |
-| `delete_recipe(recipe_id)` | Supprime une recette par son id | `DELETE FROM recipes WHERE id = ?` |
-
-`country` et `instructions` sont tous deux optionnels (`str | None`). Le LLM est instruit dans le system prompt de toujours les renseigner — c'est lui qui détermine le pays et rédige la fiche.
-
-> **Nota (inchangé) :** le chat utilise une connexion **synchrone** (`psycopg2`) alors que le reste du backend est async (`asyncpg`), d'où `DATABASE_URL.replace("+asyncpg", "+psycopg2")`.
-
-### Flux de données complet (exemple)
+La signature de l'outil s'enrichit de deux paramètres optionnels (`str | None`) :
 
 ```
-Utilisateur : "Quelles recettes j'ai ?"
-
-  1. ChatPanel envoie  POST /chat {"message": "Quelles recettes j'ai ?"}
-  2. FastAPI passe le message à l'agent LangChain
-  3. Le LLM choisit d'appeler  list_recipes()
-  4. list_recipes() exécute  SELECT * FROM recipes  → JSON (avec country + instructions)
-  5. Le LLM reçoit le JSON et liste les recettes avec leur pays d'origine
-  6. FastAPI retourne  {"reply": "Voici vos recettes : …"}
-  7. ChatPanel affiche la réponse (pas de mutation → RecipeList ne se recharge pas)
+create_recipe(name, ingredients, country, instructions)
 ```
 
-```
-Utilisateur : "Ajoute un tiramisu"
+Le LLM est instruit dans le system prompt de toujours les renseigner : il détermine le pays d'origine et rédige une fiche pédagogique complète (contexte culturel, quantités, étapes numérotées, astuces de chef).
 
-  1. → POST /chat {"message": "Ajoute un tiramisu"}
-  2. Le LLM appelle  create_recipe("tiramisu", [...], country="Italie", instructions="# Tiramisu\n…")
-  3. create_recipe() exécute  INSERT INTO recipes (name, ingredients, country, instructions)
-  4. Le LLM confirme l'ajout en mentionnant l'Italie
-  5. ChatPanel reçoit la réponse → appelle onMutation() → RecipeList se recharge
-```
+### System prompt enrichi
+
+Le LLM incarne un chef formé par sa grand-mère, mentionne systématiquement le pays d'origine lors des ajouts, et génère des instructions pédagogiques détaillées.
 
 ---
 
 ## Comment fonctionne le chat — v3
 
-> **Ce qui a changé** : sélecteur de provider LLM (Ollama / Azure) avec persistance localStorage, indicateurs de disponibilité en temps réel, carte de recette cliquable, modal pédagogique avec Markdown.
+> **Ce qui a changé par rapport à v2** : sélecteur de provider LLM (Ollama / Azure) avec persistance localStorage, indicateurs de disponibilité en temps réel, carte de recette cliquable, modal pédagogique avec Markdown.
 
-### Nouveautés frontend
+### Sélecteur de provider LLM dans `ChatPanel`
 
-**Sélecteur de provider dans `ChatPanel`**
-
-Un toggle Ollama / Azure apparaît en haut du panneau. Le choix est persisté dans `localStorage` (`llm_provider`) et relu au montage. Le provider sélectionné est désormais transmis dans chaque requête :
+Un toggle Ollama / Azure apparaît en haut du panneau. Le choix est persisté dans `localStorage` (`llm_provider`) et relu au montage. Le provider est transmis dans chaque requête :
 
 ```typescript
 // lib/api.ts
@@ -264,7 +210,9 @@ export type LLMProvider = "ollama" | "azure";
 sendChat(message, provider)  // body: { message, provider }
 ```
 
-Chaque bouton affiche un point coloré indiquant la disponibilité du provider, interrogée au chargement via un nouvel endpoint :
+### Indicateurs de disponibilité en temps réel
+
+Chaque bouton du toggle affiche un point coloré interrogé au chargement via un nouvel endpoint :
 
 ```typescript
 // GET /health/providers → { ollama: boolean, azure: boolean }
@@ -272,22 +220,22 @@ getProvidersHealth()
 // vert = disponible · rouge = indisponible · gris = en cours de vérification
 ```
 
-**`RecipeCard` — nouveau composant**
+### `RecipeCard` — nouveau composant
 
 Remplace l'ancienne liste `<li>` brute. Chaque carte affiche le drapeau du pays, le nom et un aperçu des 3 premiers ingrédients. Un clic ouvre la modal ; le bouton ✕ supprime sans l'ouvrir (`e.stopPropagation()`).
 
-**`RecipeModal` — nouveau composant**
+### `RecipeModal` — nouveau composant
 
 Modal plein écran fermable via `Escape` ou clic extérieur. Affiche :
 - En-tête sticky : drapeau + nom + pays + `#id`
 - Ingrédients en liste à puces
 - Instructions rendues en Markdown via `react-markdown`
 
-**`countryToEmoji` — helper dans `lib/api.ts`**
+### `countryToEmoji` — helper dans `lib/api.ts`
 
 Convertit le nom du pays (français ou anglais) en emoji drapeau via une table de 50+ correspondances. Retourne `🌍` par défaut.
 
-**`RecipeList`**
+### `RecipeList`
 
 Le formulaire d'ajout manuel a été supprimé — l'ajout se fait uniquement via le chat. Un message d'état vide guide l'utilisateur quand le carnet est vide.
 
