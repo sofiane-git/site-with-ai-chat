@@ -1,14 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createRecipe, deleteRecipe, listRecipes, Recipe } from "@/lib/api";
+import { deleteRecipe, listRecipes, Recipe } from "@/lib/api";
 import RecipeCard from "@/components/RecipeCard";
 import RecipeModal from "@/components/RecipeModal";
 
 export default function RecipeList({ refreshSignal }: { refreshSignal?: number }) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [name, setName] = useState("");
-  const [ingredients, setIngredients] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
@@ -25,22 +23,6 @@ export default function RecipeList({ refreshSignal }: { refreshSignal?: number }
     refresh();
   }, [refresh, refreshSignal]);
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    try {
-      await createRecipe(
-        name,
-        ingredients.split(",").map((s) => s.trim()).filter(Boolean),
-      );
-      setName("");
-      setIngredients("");
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-
   async function handleDelete(id: number) {
     try {
       await deleteRecipe(id);
@@ -54,6 +36,11 @@ export default function RecipeList({ refreshSignal }: { refreshSignal?: number }
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Mes recettes</h2>
       {error && <p className="text-red-600">{error}</p>}
+      {recipes.length === 0 && (
+        <p className="text-gray-400 italic text-sm">
+          Aucune recette pour l'instant. Demande au chat d'en ajouter une !
+        </p>
+      )}
       <ul className="space-y-2">
         {recipes.map((r) => (
           <RecipeCard
@@ -64,23 +51,6 @@ export default function RecipeList({ refreshSignal }: { refreshSignal?: number }
           />
         ))}
       </ul>
-      <form onSubmit={handleAdd} className="border p-3 rounded space-y-2">
-        <input
-          className="border p-2 w-full rounded"
-          placeholder="Nom de la recette"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          className="border p-2 w-full rounded"
-          placeholder="Ingrédients (séparés par des virgules)"
-          value={ingredients}
-          onChange={(e) => setIngredients(e.target.value)}
-        />
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
-          Ajouter
-        </button>
-      </form>
       <RecipeModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
     </div>
   );
