@@ -83,11 +83,13 @@ export async function deleteRecipe(id: number): Promise<void> {
   if (!res.ok) throw new Error("Échec suppression");
 }
 
-export async function sendChat(message: string): Promise<{ reply: string }> {
+export type LLMProvider = "ollama" | "azure";
+
+export async function sendChat(message: string, provider: LLMProvider = "ollama"): Promise<{ reply: string }> {
   const res = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, provider }),
   });
   if (!res.ok) throw new Error("Échec chat");
   return res.json();

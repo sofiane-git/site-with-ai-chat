@@ -1,14 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { sendChat } from "@/lib/api";
+import { sendChat, LLMProvider } from "@/lib/api";
 
 type Message = { role: "user" | "assistant"; content: string };
+
+const STORAGE_KEY = "llm_provider";
+
+function getInitialProvider(): LLMProvider {
+  if (typeof window === "undefined") return "ollama";
+  return (localStorage.getItem(STORAGE_KEY) as LLMProvider) ?? "ollama";
+}
 
 export default function ChatPanel({ onMutation }: { onMutation?: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [provider, setProvider] = useState<LLMProvider>(getInitialProvider);
+
+  function handleProviderChange(p: LLMProvider) {
+    setProvider(p);
+    localStorage.setItem(STORAGE_KEY, p);
+  }
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -18,7 +31,7 @@ export default function ChatPanel({ onMutation }: { onMutation?: () => void }) {
     setInput("");
     setLoading(true);
     try {
-      const { reply } = await sendChat(userMsg.content);
+      const { reply } = await sendChat(userMsg.content, provider);
       setMessages((m) => [...m, { role: "assistant", content: reply }]);
       onMutation?.();
     } catch (e) {
@@ -33,7 +46,24 @@ export default function ChatPanel({ onMutation }: { onMutation?: () => void }) {
 
   return (
     <div className="border rounded p-3 flex flex-col h-full">
-      <h2 className="text-xl font-semibold mb-3">Chat IA</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xl font-semibold">Chat IA</h2>
+        <div className="flex gap-1">
+          {(["ollama", "azure"] as LLMProvider[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => handleProviderChange(p)}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                provider === p
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {p === "ollama" ? "Ollama" : "Azure"}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="flex-1 overflow-y-auto space-y-2 min-h-[300px]">
         {messages.length === 0 && (
           <p className="text-gray-500 text-sm">
